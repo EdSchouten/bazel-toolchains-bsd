@@ -19,7 +19,9 @@ _TOOLCHAINS = {
     for triple in _TRIPLES.keys()
 }
 
-_TOOLCHAINS["darwin"] = ":cc-compiler-x86_64-apple-darwin"
+_TOOLCHAINS["darwin"] = ":cc_compiler_x86_64-apple-darwin"
+
+_TOOLCHAINS["freebsd"] = ":cc_compiler_x86_64-unknown-freebsd11.2"
 
 cc_toolchain_suite(
     name = "toolchain",
@@ -124,7 +126,7 @@ filegroup(name = "empty")
 
 # Toolchain definitions for non-BSD systems for cross compilation.
 cc_toolchain(
-    name = "cc-compiler-x86_64-apple-darwin",
+    name = "cc_compiler_x86_64-apple-darwin",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "x86_64-apple-darwin",
