@@ -1,0 +1,5 @@
+filegroup(
+    name = "clang_headers",
+    srcs = glob(["lib/Headers/**"]),
+    visibility = ["//visibility:public"],
+)

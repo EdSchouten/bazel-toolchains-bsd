@@ -1,0 +1,14 @@
+filegroup(
+    name = "headers",
+    srcs = glob(["usr/include/**"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "libraries",
+    srcs = glob([
+        "usr/lib/*.a",
+        "usr/lib/*.o",
+    ]),
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,140 @@
+load("//:versions.bzl", "BSD_VERSIONS", "get_triple")
+
+# List of all GNU-style triples that should be provided, with a list of
+# archives used for every triple (e.g., "base" for FreeBSD, "comp" for
+# NetBSD).
+_TRIPLES = {
+    get_triple(os, version, architecture): archives
+    for os, versions in BSD_VERSIONS.items()
+    for version, architectures in versions.items()
+    for architecture, archives in architectures.items()
+}
+
+# Toolchains that are provided as part of this toolchain suite. Also
+# provide some non-BSD toolchains to make builds on other operating
+# systems pass. This allows for cross compilation of BSD executables on
+# Linux, macOS, etc.
+_TOOLCHAINS = {
+    triple: ":cc_compiler_" + triple
+    for triple in _TRIPLES.keys()
+}
+
+_TOOLCHAINS["darwin"] = ":cc-compiler-x86_64-apple-darwin"
+
+cc_toolchain_suite(
+    name = "toolchain",
+    toolchains = _TOOLCHAINS,
+    visibility = ["//visibility:public"],
+)
+
+# Determining the host operating system, so the right copy of Clang and
+# LLD may be used by the build action.
+config_setting(
+    name = "host_x86_64-apple-darwin",
+    values = {"host_cpu": "darwin"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "host_x86_64-unknown-freebsd",
+    values = {"host_cpu": "freebsd"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "host_x86_64-unknown-linux-gnu",
+    values = {"host_cpu": "k8"},
+    visibility = ["//visibility:public"],
+)
+
+# Files that need to be present during compilation: Clang executable,
+# header files shipped with Clang, and header files shipped with the BSD
+# operating system.
+[
+    filegroup(
+        name = "compiler_files_" + triple,
+        srcs = [
+            "@org_llvm_cfe//:clang_headers",
+            ":wrappers/clang",
+        ] + select({
+            ":host_x86_64-apple-darwin": ["@org_llvm_llvm_x86_64_apple_darwin//:bin/clang-7"],
+            ":host_x86_64-unknown-freebsd": ["@org_llvm_llvm_x86_64_unknown_freebsd//:bin/clang-7"],
+            ":host_x86_64-unknown-linux-gnu": ["@org_llvm_llvm_x86_64_unknown_linux_gnu//:bin/clang-7"],
+        }) + [
+            "@%s_%s//:headers" % (triple, archive)
+            for archive in archives.keys()
+        ],
+    )
+    for triple, archives in _TRIPLES.items()
+]
+
+# Files that need to be present during linking: Clang, LLD and ar
+# executables, and libraries shipped with the BSD operating system.
+[
+    filegroup(
+        name = "linker_files_" + triple,
+        srcs = [
+            ":wrappers/clang",
+            ":wrappers/llvm-ar",
+        ] + select({
+            ":host_x86_64-apple-darwin": [
+                "@org_llvm_llvm_x86_64_apple_darwin//:bin/clang-7",
+                "@org_llvm_llvm_x86_64_apple_darwin//:bin/lld",
+                "@org_llvm_llvm_x86_64_apple_darwin//:bin/llvm-ar",
+            ],
+            ":host_x86_64-unknown-freebsd": [
+                "@org_llvm_llvm_x86_64_unknown_freebsd//:bin/clang-7",
+                "@org_llvm_llvm_x86_64_unknown_freebsd//:bin/lld",
+                "@org_llvm_llvm_x86_64_unknown_freebsd//:bin/llvm-ar",
+            ],
+            ":host_x86_64-unknown-linux-gnu": [
+                "@org_llvm_llvm_x86_64_unknown_linux_gnu//:bin/clang-7",
+                "@org_llvm_llvm_x86_64_unknown_linux_gnu//:bin/lld",
+                "@org_llvm_llvm_x86_64_unknown_linux_gnu//:bin/llvm-ar",
+            ],
+        }) + [
+            "@%s_%s//:libraries" % (triple, archive)
+            for archive in archives.keys()
+        ],
+    )
+    for triple, archives in _TRIPLES.items()
+]
+
+# Toolchain definitions.
+filegroup(name = "empty")
+
+[
+    cc_toolchain(
+        name = "cc_compiler_" + triple,
+        all_files = ":compiler_files_" + triple,
+        compiler_files = ":compiler_files_" + triple,
+        cpu = triple,
+        dwp_files = ":empty",
+        dynamic_runtime_libs = [":empty"],
+        linker_files = ":linker_files_" + triple,
+        objcopy_files = ":empty",
+        static_runtime_libs = [":empty"],
+        strip_files = ":empty",
+        supports_param_files = 0,
+        toolchain_identifier = triple,
+        visibility = ["//visibility:public"],
+    )
+    for triple in _TRIPLES.keys()
+]
+
+# Toolchain definitions for non-BSD systems for cross compilation.
+cc_toolchain(
+    name = "cc-compiler-x86_64-apple-darwin",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "x86_64-apple-darwin",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 0,
+    toolchain_identifier = "x86_64-apple-darwin",
+    visibility = ["//visibility:public"],
+)
